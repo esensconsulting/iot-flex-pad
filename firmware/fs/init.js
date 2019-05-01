@@ -4,126 +4,135 @@ load('api_timer.js');
 load('api_dht.js');
 load('api_config.js');
 load('api_gpio.js');
-load('api_mqtt.js');
 load('api_net.js');
 load('api_sys.js');
 load('api_timer.js');
 load('api_dht.js');
+load('api_adc.js');
 
 let deviceName = Cfg.get('device.id');
 let topic = '/devices/' + deviceName + '/events';
-
 let isConnected = false;
-
 let dhtPin = Cfg.get('app.dht');
 let dht = DHT.create(dhtPin, DHT.DHT11);
+
 let led = 13; 
 let button = Cfg.get('pins.button');
 print('Topic: ', topic);
 
-let A0 = 26;
-let A1 = 25;
 let A2 = 34;
 let A3 = 39;
+let A4 = 36;
+let A5 = 32;
 
-let bouclier = {};
+let R0 = 13;
+let R1 = 12;
+let R2 = 27;
+let R3 = 21;
 
-GPIO.set_mode(led, GPIO.MODE_OUTPUT);
+let r=0;
 
-function setWhithePunchHandler(){ 
+let detect_threshold = 80;
+let flexPadArray = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+let modeFunc='NORMAL';
+let test= 'test';
 
-  print('hello');
-  GPIO.set_mode(A0, GPIO.MODE_INPUT);
-  GPIO.set_pull(A0, GPIO.PULL_UP); 
-  setShieldPunchHandler(A0);
-  GPIO.enable_int(A0);
+ADC.enable(A2);
+ADC.enable(A3);
+ADC.enable(A4);
+ADC.enable(A5);
+
+GPIO.set_mode(R0, GPIO.MODE_OUTPUT);
+GPIO.set_mode(R1, GPIO.MODE_OUTPUT);
+
+
+function setRow(r){
+  let bArray = numberToBinaryArray(r);
+  writeToRowSelector(bArray[0], bArray[1]);
 }
 
-
-function setBlackPunchHandler(){ 
- GPIO.set_mode(A1, GPIO.MODE_INPUT);
- GPIO.set_pull(A1, GPIO.PULL_UP); 
- setShieldPunchHandler(A1);
- GPIO.enable_int(A1);
-} 
-
-function setYellowPunchHandler(){ 
- GPIO.set_mode(A2, GPIO.MODE_INPUT);
- GPIO.set_pull(A2, GPIO.PULL_UP); 
- setShieldPunchHandler(A2);
- GPIO.enable_int(A2);
-} 
-
-function setRedPunchHandler(){ 
- GPIO.set_mode(A3, GPIO.MODE_INPUT);
- GPIO.set_pull(A3, GPIO.PULL_UP); 
- setShieldPunchHandler(A3);
- GPIO.enable_int(A3);
-} 
-
-function inputToColor(input){
-  if (input === A0)
-    return "white"
-  if (input === A1)
-    return "black"
-  if (input === A2)
-    return "yellow"
-  if (input === A3)
-    return "red"    
+function writeToRowSelector(i1, i0){
+  GPIO.write(R0, i0);
+  GPIO.write(R1, i1);
 }
 
-function setShieldPunchHandler(input){ 
-    GPIO.set_button_handler(input, GPIO.PULL_UP, GPIO.INT_EDGE_NEG, 200, function(input) {
-    print('down again');
-    GPIO.toggle(led);
-    publishPunch(inputToColor(input))
-  }, null);
+function numberToBinaryArray(n){
+  if (n === 0) return [0,0];
+  if (n === 1) return [0,1];
+  if (n === 2) return [1,0];
+  if (n === 3) return [1,1];
+  return [0,0];
 }
 
+function getPushedButton(r,c){
 
-let buildDataPunch = function(color) {
+  if (r === 0  && c === 0) return 0;
+  if (r === 0  && c === 1) return 1;
+  if (r === 0  && c === 2) return 2;
+  if (r === 0  && c === 3) return 3;
+  if (r === 1  && c === 0) return 4;
+  if (r === 1  && c === 1) return 5;
+  if (r === 1  && c === 2) return 6;
+  if (r === 1  && c === 3) return 7;
+  if (r === 2  && c === 0) return 8;
+  if (r === 2  && c === 1) return 9;
+  if (r === 2  && c === 2) return 10;
+  if (r === 2  && c === 3) return 11;
+  if (r === 3  && c === 0) return 12;
+  if (r === 3  && c === 1) return 13;
+  if (r === 3  && c === 2) return 14;
+  if (r === 3  && c === 3) return 15;
+
+}
+
+function printVoltages(){
+  print('C0:', ADC.read(A5), ' C1:', ADC.read(A4) , 'C2:', ADC.read(A3), ' C3', ADC.read(A2), 'R: ', r);
+}
+
+let buildDataFlexPad = function(pushedButtonNumber) {
+
+  print('mode arribe',  modeFunc);
+  if (modeFunc === 'TOGGLE'){
+    flexPadArray = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+  }
+  
+  flexPadArray[pushedButtonNumber] = 1;
+
   return JSON.stringify({
-    white: color === 'white',
-    red: color === 'red',
-    black: color === 'black',
-    yellow: color === 'yellow'
+    flexPadData: flexPadArray    
   });
 };
 
-let buildDataColor = function(color) {
-  return JSON.stringify({
-    color:color
-  });
-};
-
-function publishPunch(color){
-  print('punch data:', buildDataPunch(color));
-  // let ok = MQTT.pub(topic, buildDataPunch(color));
-  let ok = MQTT.pub(topic, buildDataColor(color));
+function publishDataFlexPad(pushedButtonNumber){
+  print('FlexPad data:', buildDataFlexPad (pushedButtonNumber));
+  let ok = MQTT.pub(topic, buildDataFlexPad (pushedButtonNumber));
   if (ok) {
     print('Published');
   } else {
     print('Error publishing');
   }
-}/*
+}
 
-
-/*Timer.set(
-  100,
-  true,
-  function() {
-    if (isConnected) {
-    publishPunch(getRandomColor());
-    }
-  },
-  null
-);*/
+function detectTouch(analogInput, column){
+  if (ADC.read(analogInput) > detect_threshold) { 
+    print('Button: ', getPushedButton(r, column));
+    publishDataFlexPad(getPushedButton(r, column));
+  }
+}
+ 
 
 Timer.set(
-  20*1000,
+  10,
   true,
   function() {
-    print('Info:', getInfo());
+    setRow(r);
+    detectTouch(A5,0);
+    detectTouch(A4,1);
+    detectTouch(A3,2);
+    detectTouch(A2,3);
+    // printVoltages();
+    r++;
+    if (r > 3) r = 0;
   },
   null
 );
@@ -131,8 +140,17 @@ Timer.set(
 MQTT.setEventHandler(function(conn, ev) {
   if (ev === MQTT.EV_CONNACK) {
     print('CONNECTED');
-    isConnected = true;
     publishData();
+    MQTT.sub('/devices/' + deviceName + '/commands/#', function(conn, topic, msg) {
+      if (msg === 'TOGGLE' || msg === 'NORMAL'){
+        modeFunc = '' + msg; 
+        print('el test', test);
+        print('el mode', modeFunc);
+      }  
+      print('Message', msg);
+    }, null);
+
+    isConnected = true;
   }
 }, null);
 
@@ -155,17 +173,6 @@ let getInfo = function() {
   });
 };
 
-/*setWhithePunchHandler();
-setBlackPunchHandler();
-setYellowPunchHandler();
-setRedPunchHandler();*/
-
-/*function getRandomColor(){
- let colorArray = ['white', 'red','yellow', 'black' ];
- return colorArray[Math.floor(Math.random()*4)]
-}*/
-
-// Monitor network connectivity.
 Net.setStatusEventHandler(function(ev, arg) {
   let evs = '???';
   if (ev === Net.STATUS_DISCONNECTED) {
