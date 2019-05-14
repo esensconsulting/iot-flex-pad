@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Weather Station</title>
+  <title>IoT Flex-Pad</title>
 
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto+Mono">
@@ -21,23 +21,16 @@
       margin: 0px auto;
     }
 
-    .mdc-card {
-      margin-bottom: 20px;
-      padding: 8px;
-    }
   </style>
 
 </head>
 
 <body>
-  <header class="mdc-toolbar mdc-toolbar--fixed">
-    <div class="mdc-toolbar__row">
-      <section class="mdc-toolbar__section mdc-toolbar__section--align-start">
-        <span class="mdc-toolbar__title">IoT Flex Pad</span>
-      </section>
-    </div>
+
+  <header style="font-family: sans-serif; text-align: center; font-size: 50px;">
+    IoT Flex-Pad
   </header>
-  <main class="mdc-toolbar-fixed-adjust">
+  <main style="padding-top: 32px">
     <div id="pads" style="display: flex; flex-wrap:wrap; width:70%; margin: auto"></div>
   </main>
 
@@ -50,7 +43,6 @@
   <!-- update the version number as needed -->
   <script defer src="/__/firebase/4.5.0/firebase-app.js"></script>
   <!-- include only the Firebase features as you need -->
-  <script defer src="/__/firebase/4.5.0/firebase-auth.js"></script>
   <script defer src="/__/firebase/4.5.0/firebase-database.js"></script>
   <!-- initialize the SDK after all desired features are loaded -->
   <script defer src="/__/firebase/init.js"></script>

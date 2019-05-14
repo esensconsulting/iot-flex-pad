@@ -13,23 +13,6 @@ load('api_adc.js');
 let deviceName = Cfg.get('device.id');
 let topic = '/devices/' + deviceName + '/events';
 let isConnected = false;
-let dhtPin = Cfg.get('app.dht');
-let dht = DHT.create(dhtPin, DHT.DHT11);
-
-let led = 13; 
-let button = Cfg.get('pins.button');
-print('Topic: ', topic);
-
-let A2 = 34;
-let A3 = 39;
-let A4 = 36;
-let A5 = 32;
-
-let R0 = 13;
-let R1 = 12;
-let R2 = 27;
-let R3 = 21;
-
 let r=0;
 
 let detect_threshold = 80;
@@ -37,13 +20,24 @@ let flexPadArray = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
 let modeFunc='NORMAL';
 let test= 'test';
 
+// Configuration de pins pour lire des tensions
+let A2 = 34;
+let A3 = 39;
+let A4 = 36;
+let A5 = 32;
+
 ADC.enable(A2);
 ADC.enable(A3);
 ADC.enable(A4);
 ADC.enable(A5);
 
+// Configuration de pins en mode output pour controler le multiplexeur d'injection de tension
+let R0 = 13;
+let R1 = 12;
+
 GPIO.set_mode(R0, GPIO.MODE_OUTPUT);
 GPIO.set_mode(R1, GPIO.MODE_OUTPUT);
+
 
 
 function setRow(r){
@@ -89,23 +83,34 @@ function printVoltages(){
   print('C0:', ADC.read(A5), ' C1:', ADC.read(A4) , 'C2:', ADC.read(A3), ' C3', ADC.read(A2), 'R: ', r);
 }
 
-let buildDataFlexPad = function(pushedButtonNumber) {
+let buildDataFlexPadByButton = function(pushedButtonNumber) {
 
-  print('mode arribe',  modeFunc);
   if (modeFunc === 'TOGGLE'){
-    flexPadArray = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+    clearFlexPadArray();
   }
   
-  flexPadArray[pushedButtonNumber] = 1;
+  if (pushedButtonNumber !== null){
+    flexPadArray[pushedButtonNumber] = 1;
+  }
 
-  return JSON.stringify({
-    flexPadData: flexPadArray    
-  });
+  return flexPadArray;
+    
 };
 
-function publishDataFlexPad(pushedButtonNumber){
-  print('FlexPad data:', buildDataFlexPad (pushedButtonNumber));
-  let ok = MQTT.pub(topic, buildDataFlexPad (pushedButtonNumber));
+function formatDataFlexPad(array){
+  return JSON.stringify({
+    flexPadData: array    
+  });
+}
+
+function clearFlexPadArray(){
+  flexPadArray = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+}
+
+function publishDataFlexPad(){
+  
+  let ok = MQTT.pub(topic,formatDataFlexPad(flexPadArray));
+
   if (ok) {
     print('Published');
   } else {
@@ -116,7 +121,10 @@ function publishDataFlexPad(pushedButtonNumber){
 function detectTouch(analogInput, column){
   if (ADC.read(analogInput) > detect_threshold) { 
     print('Button: ', getPushedButton(r, column));
-    publishDataFlexPad(getPushedButton(r, column));
+    let pushedButtonNumber = getPushedButton(r, column);
+    print('FlexPad data:', buildDataFlexPadByButton (pushedButtonNumber));
+    buildDataFlexPadByButton (pushedButtonNumber);
+    publishDataFlexPad();
   }
 }
  
@@ -140,13 +148,16 @@ Timer.set(
 MQTT.setEventHandler(function(conn, ev) {
   if (ev === MQTT.EV_CONNACK) {
     print('CONNECTED');
-    publishData();
+    clearFlexPadArray();
+    publishDataFlexPad();
     MQTT.sub('/devices/' + deviceName + '/commands/#', function(conn, topic, msg) {
       if (msg === 'TOGGLE' || msg === 'NORMAL'){
         modeFunc = '' + msg; 
-        print('el test', test);
-        print('el mode', modeFunc);
       }  
+      if (msg === 'CLEAR'){
+        clearFlexPadArray();
+        publishDataFlexPad();
+      }
       print('Message', msg);
     }, null);
 
@@ -155,23 +166,6 @@ MQTT.setEventHandler(function(conn, ev) {
 }, null);
 
 
-function publishData() {
-  let ok = MQTT.pub(topic, getInfo());
-  if (ok) {
-    print('Published');
-  } else {
-    print('Error publishing');
-  }
-}
-
-let getInfo = function() {
-  return JSON.stringify({
-    total_ram: Sys.total_ram() / 1024,
-    free_ram: Sys.free_ram() / 1024,
-    temp: dht.getTemp(),
-    hum: dht.getHumidity()
-  });
-};
 
 Net.setStatusEventHandler(function(ev, arg) {
   let evs = '???';
@@ -186,3 +180,6 @@ Net.setStatusEventHandler(function(ev, arg) {
   }
   print('== Net event:', ev, evs);
 }, null);
+
+/*let R2 = 27;
+let R3 = 21;*/

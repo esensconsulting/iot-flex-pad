@@ -1,2 +1,5 @@
 doc/
 *.pem
+firmware/provision.sh
+firmware/provision.bat
+.vscode/ipch/d6cc6256316c774c/mmap_address.bin
